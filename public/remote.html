@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Slide Clicker Remote</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #08080d;
+    color: #e0e0e8;
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+  }
+
+  /* Header */
+  .header {
+    padding: 0.8rem 1.2rem;
+    padding-top: max(0.8rem, env(safe-area-inset-top));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .brand {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .conn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    color: #6b6b80;
+  }
+  .conn-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 6px rgba(74,222,128,0.5);
+  }
+  .conn-dot.off {
+    background: #ef4444;
+    box-shadow: 0 0 6px rgba(239,68,68,0.5);
+  }
+
+  /* Mode toggle */
+  .mode-bar {
+    display: flex;
+    gap: 2px;
+    padding: 0 1rem;
+    margin-bottom: 0.5rem;
+    flex-shrink: 0;
+  }
+  .mode-btn {
+    flex: 1;
+    padding: 0.55rem 0;
+    border: none;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    color: #5a5a6e;
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+  .mode-btn.active {
+    background: rgba(167,139,250,0.12);
+    color: #a78bfa;
+  }
+  .mode-btn svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+  }
+
+  /* Main clicker area */
+  .clicker {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 0 1rem 0.5rem;
+    min-height: 0;
+  }
+  .clicker.hidden { display: none; }
+
+  .btn {
+    flex: 1;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-family: inherit;
+    transition: transform 0.1s ease, background 0.15s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-next {
+    flex: 2.2;
+    background: linear-gradient(165deg, #1e1b4b 0%, #0f172a 100%);
+    border: 1px solid rgba(167,139,250,0.15);
+  }
+  .btn-next:active { background: linear-gradient(165deg, #2e2660 0%, #162040 100%); }
+  .btn-next .icon {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #a78bfa, #818cf8);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 24px rgba(167,139,250,0.3);
+  }
+  .btn-next .icon svg { width: 24px; height: 24px; fill: white; margin-left: 2px; }
+  .btn-next .label {
+    font-size: 0.85rem; font-weight: 500;
+    color: rgba(167,139,250,0.8);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+
+  .btn-prev {
+    flex: 1;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .btn-prev:active { background: rgba(255,255,255,0.07); }
+  .btn-prev .icon {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .btn-prev .icon svg { width: 18px; height: 18px; fill: rgba(255,255,255,0.5); margin-right: 2px; }
+  .btn-prev .label {
+    font-size: 0.7rem; font-weight: 500;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+
+  /* Ripple */
+  .ripple {
+    position: absolute; border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    transform: scale(0);
+    animation: ripple-anim 0.5s ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes ripple-anim { to { transform: scale(4); opacity: 0; } }
+
+  /* Pointer mode */
+  .pointer-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0 1rem 0.5rem;
+    min-height: 0;
+    gap: 1px;
+  }
+  .pointer-view.hidden { display: none; }
+
+  .trackpad {
+    flex: 2.5;
+    border-radius: 20px;
+    background: linear-gradient(165deg, #1a0a0a 0%, #0f0a14 100%);
+    border: 1px solid rgba(255,70,70,0.15);
+    position: relative;
+    overflow: hidden;
+    touch-action: none;
+  }
+  .trackpad-label {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .trackpad-label .tp-icon {
+    width: 48px; height: 48px;
+    margin: 0 auto 0.6rem;
+    border-radius: 50%;
+    background: rgba(255,70,70,0.1);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .trackpad-label .tp-icon svg {
+    width: 22px; height: 22px; fill: rgba(255,70,70,0.5);
+  }
+  .trackpad-label .tp-text {
+    font-size: 0.7rem;
+    color: rgba(255,70,70,0.4);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .trackpad.touching .trackpad-label { opacity: 0.2; }
+
+  /* Touch indicator on trackpad */
+  .touch-dot {
+    position: absolute;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,80,80,0.6) 0%, rgba(255,50,50,0) 70%);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .touch-dot.active { opacity: 1; }
+
+  /* Nav buttons in pointer mode (smaller) */
+  .pointer-nav {
+    flex: 1;
+    display: flex;
+    gap: 1px;
+  }
+  .pointer-nav .btn {
+    border-radius: 16px;
+  }
+  .ptr-prev {
+    flex: 1;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .ptr-prev:active { background: rgba(255,255,255,0.07); }
+  .ptr-prev svg { width: 20px; height: 20px; fill: rgba(255,255,255,0.4); }
+
+  .ptr-next {
+    flex: 1.5;
+    background: linear-gradient(165deg, #1e1b4b 0%, #0f172a 100%);
+    border: 1px solid rgba(167,139,250,0.15);
+  }
+  .ptr-next:active { background: linear-gradient(165deg, #2e2660 0%, #162040 100%); }
+  .ptr-next svg { width: 22px; height: 22px; fill: rgba(167,139,250,0.8); }
+
+  /* Footer */
+  .footer {
+    padding: 0.6rem;
+    padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
+    text-align: center;
+    font-size: 0.6rem;
+    color: #2a2a35;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+  }
+
+  /* Connection overlay */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(8,8,13,0.95);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 1rem; z-index: 100;
+    transition: opacity 0.3s;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 2px solid rgba(167,139,250,0.2);
+    border-top-color: #a78bfa;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .overlay p { font-size: 0.85rem; color: #6b6b80; }
+</style>
+</head>
+<body>
+
+  <div class="overlay" id="overlay">
+    <div class="spinner"></div>
+    <p>Connecting to presentation...</p>
+  </div>
+
+  <div class="header">
+    <div class="brand">Slide Clicker</div>
+    <div class="conn">
+      <div class="conn-dot" id="connDot"></div>
+      <span id="connText">Connected</span>
+    </div>
+  </div>
+
+  <!-- Mode toggle -->
+  <div class="mode-bar">
+    <button class="mode-btn active" id="modeSlides" data-mode="slides">
+      <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      Slides
+    </button>
+    <button class="mode-btn" id="modePointer" data-mode="pointer">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16z" opacity=".3"/></svg>
+      Laser
+    </button>
+  </div>
+
+  <!-- Slides mode -->
+  <div class="clicker" id="viewSlides">
+    <button class="btn btn-next" id="btnNext">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </div>
+      <div class="label">Next Slide</div>
+    </button>
+    <button class="btn btn-prev" id="btnPrev">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </div>
+      <div class="label">Previous</div>
+    </button>
+  </div>
+
+  <!-- Pointer mode -->
+  <div class="pointer-view hidden" id="viewPointer">
+    <div class="trackpad" id="trackpad">
+      <div class="trackpad-label">
+        <div class="tp-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg>
+        </div>
+        <div class="tp-text">Touch &amp; drag to point</div>
+      </div>
+      <div class="touch-dot" id="touchDot"></div>
+    </div>
+    <div class="pointer-nav">
+      <button class="btn ptr-prev" id="ptrPrev">
+        <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+      <button class="btn ptr-next" id="ptrNext">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="footer">BUILT WITH AI &middot; PRACTICE WHAT WE PREACH</div>
+
+<script>
+  const overlay = document.getElementById("overlay");
+  const connDot = document.getElementById("connDot");
+  const connText = document.getElementById("connText");
+  const btnNext = document.getElementById("btnNext");
+  const btnPrev = document.getElementById("btnPrev");
+  const ptrNext = document.getElementById("ptrNext");
+  const ptrPrev = document.getElementById("ptrPrev");
+  const trackpad = document.getElementById("trackpad");
+  const touchDot = document.getElementById("touchDot");
+  const viewSlides = document.getElementById("viewSlides");
+  const viewPointer = document.getElementById("viewPointer");
+  const modeSlides = document.getElementById("modeSlides");
+  const modePointer = document.getElementById("modePointer");
+
+  let ws;
+  let connected = false;
+  let currentMode = "slides";
+
+  // ── Mode switching ──
+  function setMode(mode) {
+    currentMode = mode;
+    modeSlides.classList.toggle("active", mode === "slides");
+    modePointer.classList.toggle("active", mode === "pointer");
+    viewSlides.classList.toggle("hidden", mode !== "slides");
+    viewPointer.classList.toggle("hidden", mode !== "pointer");
+
+    if (connected) {
+      if (mode === "pointer") {
+        ws.send(JSON.stringify({ type: "pointer", action: "start" }));
+      } else {
+        ws.send(JSON.stringify({ type: "pointer", action: "stop" }));
+      }
+    }
+  }
+
+  modeSlides.addEventListener("click", () => setMode("slides"));
+  modePointer.addEventListener("click", () => setMode("pointer"));
+
+  // ── WebSocket ──
+  function connect() {
+    ws = new WebSocket(`ws://${location.host}/ws/remote`);
+
+    ws.onopen = () => {
+      connected = true;
+      overlay.classList.add("hidden");
+      connDot.classList.remove("off");
+      connText.textContent = "Connected";
+      // Re-activate pointer if we were in pointer mode
+      if (currentMode === "pointer") {
+        ws.send(JSON.stringify({ type: "pointer", action: "start" }));
+      }
+    };
+
+    ws.onclose = () => {
+      connected = false;
+      connDot.classList.add("off");
+      connText.textContent = "Reconnecting...";
+      setTimeout(connect, 1500);
+    };
+
+    ws.onerror = () => ws.close();
+  }
+
+  // ── Navigation ──
+  function navigate(direction) {
+    if (!connected) return;
+    ws.send(JSON.stringify({ type: "navigate", direction }));
+    if (navigator.vibrate) navigator.vibrate(25);
+  }
+
+  function addRipple(btn, e) {
+    const rect = btn.getBoundingClientRect();
+    const ripple = document.createElement("div");
+    ripple.className = "ripple";
+    const size = Math.max(rect.width, rect.height);
+    ripple.style.width = ripple.style.height = size + "px";
+    const touch = e.touches ? e.touches[0] : e;
+    ripple.style.left = (touch.clientX - rect.left - size / 2) + "px";
+    ripple.style.top = (touch.clientY - rect.top - size / 2) + "px";
+    btn.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 500);
+  }
+
+  function setupButton(btn, direction) {
+    let handled = false;
+    btn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      handled = true;
+      addRipple(btn, e);
+      navigate(direction);
+    }, { passive: false });
+
+    btn.addEventListener("click", (e) => {
+      if (handled) { handled = false; return; }
+      addRipple(btn, e);
+      navigate(direction);
+    });
+  }
+
+  setupButton(btnNext, "next");
+  setupButton(btnPrev, "prev");
+  setupButton(ptrNext, "next");
+  setupButton(ptrPrev, "prev");
+
+  // ── Laser pointer trackpad ──
+  let pointing = false;
+
+  function sendPointer(touch) {
+    if (!connected) return;
+    const rect = trackpad.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (touch.clientY - rect.top) / rect.height));
+
+    ws.send(JSON.stringify({ type: "pointer", action: "move", x, y }));
+
+    // Show local touch indicator
+    touchDot.style.left = (touch.clientX - rect.left) + "px";
+    touchDot.style.top = (touch.clientY - rect.top) + "px";
+    touchDot.classList.add("active");
+  }
+
+  trackpad.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    pointing = true;
+    trackpad.classList.add("touching");
+    sendPointer(e.touches[0]);
+    if (navigator.vibrate) navigator.vibrate(10);
+  }, { passive: false });
+
+  trackpad.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    if (!pointing) return;
+    sendPointer(e.touches[0]);
+  }, { passive: false });
+
+  trackpad.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    pointing = false;
+    trackpad.classList.remove("touching");
+    touchDot.classList.remove("active");
+    if (connected) {
+      ws.send(JSON.stringify({ type: "pointer", action: "hide" }));
+    }
+  }, { passive: false });
+
+  trackpad.addEventListener("touchcancel", (e) => {
+    pointing = false;
+    trackpad.classList.remove("touching");
+    touchDot.classList.remove("active");
+    if (connected) {
+      ws.send(JSON.stringify({ type: "pointer", action: "hide" }));
+    }
+  });
+
+  // Mouse support (for testing on desktop)
+  let mouseDown = false;
+  trackpad.addEventListener("mousedown", (e) => {
+    mouseDown = true;
+    trackpad.classList.add("touching");
+    sendPointerMouse(e);
+  });
+  trackpad.addEventListener("mousemove", (e) => {
+    if (!mouseDown) return;
+    sendPointerMouse(e);
+  });
+  trackpad.addEventListener("mouseup", () => {
+    mouseDown = false;
+    trackpad.classList.remove("touching");
+    touchDot.classList.remove("active");
+    if (connected) ws.send(JSON.stringify({ type: "pointer", action: "hide" }));
+  });
+  trackpad.addEventListener("mouseleave", () => {
+    if (!mouseDown) return;
+    mouseDown = false;
+    trackpad.classList.remove("touching");
+    touchDot.classList.remove("active");
+    if (connected) ws.send(JSON.stringify({ type: "pointer", action: "hide" }));
+  });
+
+  function sendPointerMouse(e) {
+    if (!connected) return;
+    const rect = trackpad.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    ws.send(JSON.stringify({ type: "pointer", action: "move", x, y }));
+    touchDot.style.left = (e.clientX - rect.left) + "px";
+    touchDot.style.top = (e.clientY - rect.top) + "px";
+    touchDot.classList.add("active");
+  }
+
+  // Prevent pull-to-refresh
+  document.addEventListener("touchmove", (e) => {
+    if (!trackpad.contains(e.target)) e.preventDefault();
+  }, { passive: false });
+
+  // Keyboard fallback
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight" || e.key === "PageDown") navigate("next");
+    if (e.key === "ArrowLeft" || e.key === "PageUp") navigate("prev");
+  });
+
+  connect();
+</script>
+</body>
+</html>

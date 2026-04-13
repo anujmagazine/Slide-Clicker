@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slide Clicker — Presenter</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0a0a0f;
+    color: #e0e0e8;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .container {
+    text-align: center;
+    max-width: 520px;
+    padding: 2rem;
+  }
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.4rem;
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle {
+    font-size: 0.85rem;
+    color: #6b6b80;
+    margin-bottom: 2.5rem;
+  }
+  .qr-box {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(10px);
+  }
+  .qr-box img {
+    width: 240px;
+    height: 240px;
+    border-radius: 8px;
+  }
+  .url {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    color: #60a5fa;
+    margin-top: 1rem;
+    word-break: break-all;
+    user-select: all;
+  }
+  .instructions {
+    font-size: 0.85rem;
+    color: #6b6b80;
+    line-height: 1.8;
+    margin-bottom: 2rem;
+  }
+  .instructions span {
+    display: inline-block;
+    background: rgba(167,139,250,0.12);
+    color: #a78bfa;
+    padding: 0.1em 0.5em;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.8rem;
+  }
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    padding: 0.5rem 1rem;
+    border-radius: 100px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #4ade80;
+    animation: pulse 2s ease infinite;
+  }
+  .dot.waiting { background: #fbbf24; }
+  .dot.disconnected { background: #ef4444; animation: none; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .flash {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  .flash.next { background: radial-gradient(ellipse at center, rgba(96,165,250,0.12) 0%, transparent 70%); }
+  .flash.prev { background: radial-gradient(ellipse at center, rgba(167,139,250,0.12) 0%, transparent 70%); }
+  .flash.active { opacity: 1; transition: none; }
+  .badge {
+    margin-top: 2rem;
+    font-size: 0.7rem;
+    color: #3a3a4a;
+    letter-spacing: 0.05em;
+  }
+</style>
+</head>
+<body>
+  <div class="flash next" id="flashNext"></div>
+  <div class="flash prev" id="flashPrev"></div>
+  <div class="container">
+    <h1>Slide Clicker</h1>
+    <div class="qr-box" id="qrBox">
+      <img id="qrImg" alt="QR Code" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=">
+      <div class="url" id="urlText">Loading...</div>
+    </div>
+    <div class="instructions">
+      <span>1</span> Open your presentation (PowerPoint, Google Slides, etc.)<br>
+      <span>2</span> Scan the QR code with your phone<br>
+      <span>3</span> Tap to navigate slides — it just works
+    </div>
+    <div class="status">
+      <div class="dot waiting" id="dot"></div>
+      <span id="statusText">Waiting for phone...</span>
+    </div>
+    <div class="badge">SLIDE CLICKER &middot; AI-POWERED</div>
+  </div>
+
+<script>
+  // Load QR code
+  fetch("/api/qr")
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById("qrImg").src = data.qr;
+      document.getElementById("urlText").textContent = data.url;
+    });
+
+  // WebSocket
+  const ws = new WebSocket(`ws://${location.host}/ws/presenter`);
+  const dot = document.getElementById("dot");
+  const statusText = document.getElementById("statusText");
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === "remotes") {
+      if (msg.count > 0) {
+        dot.className = "dot";
+        statusText.textContent = `${msg.count} remote${msg.count > 1 ? 's' : ''} connected`;
+      } else {
+        dot.className = "dot waiting";
+        statusText.textContent = "Waiting for phone...";
+      }
+    }
+    if (msg.type === "navigated") {
+      const el = msg.direction === "next"
+        ? document.getElementById("flashNext")
+        : document.getElementById("flashPrev");
+      el.classList.add("active");
+      setTimeout(() => el.classList.remove("active"), 200);
+    }
+  };
+
+  ws.onclose = () => {
+    dot.className = "dot disconnected";
+    statusText.textContent = "Server disconnected";
+  };
+</script>
+</body>
+</html>
