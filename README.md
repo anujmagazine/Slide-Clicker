@@ -186,10 +186,95 @@ slide-clicker/
 
 ---
 
+## Presenting at a Company or Conference Venue
+
+This is the most important thing to know before you present somewhere new.
+
+Most corporate offices, hotels, and conference venues use **client isolation** on their WiFi — a security setting that prevents devices on the same network from talking to each other. Your phone and laptop can both be connected to the same WiFi, but they still can't reach each other. This is why you might see a **"Page cannot be displayed"** error on your phone even though the QR code looks correct.
+
+There are two reliable ways to get around this.
+
+---
+
+### Option 1 — Use Your Phone as a Hotspot (Recommended)
+
+Turn your phone into its own private WiFi network and connect your laptop to it. This completely bypasses the venue's network — your phone and laptop are on their own isolated connection that no IT policy can block.
+
+**On iPhone:** Settings → Personal Hotspot → turn on
+
+**On Android:** Settings → Hotspot & Tethering → Mobile Hotspot → turn on
+
+Then on your laptop, disconnect from the venue WiFi and connect to your phone's hotspot instead. Run `npm start` as normal. The QR code will show your laptop's IP on the hotspot network and your phone will connect instantly.
+
+✅ No internet required on laptop
+✅ Works at any venue, any company, any country
+✅ No accounts, no setup, just flip a switch
+✅ The go-to option for presentations
+
+---
+
+### Option 2 — Use ngrok (When Your Laptop Needs Internet Too)
+
+ngrok is a free tool that creates a temporary public URL pointing to your laptop. Instead of your phone connecting directly to your laptop's IP (which gets blocked), it connects through ngrok's servers on the internet — which are never blocked.
+
+Think of it like this: your laptop is a shop with no street address. ngrok gives it a real public address and forwards all deliveries to you, even though you're hidden behind a corporate firewall.
+
+**One-time setup:**
+
+```bash
+npm install -g ngrok
+```
+
+Sign up free at [ngrok.com](https://ngrok.com), then run:
+
+```bash
+ngrok config add-authtoken YOUR_TOKEN_HERE
+```
+
+**Every time you present:**
+
+Open two terminals side by side.
+
+Terminal 1:
+```bash
+npm start
+```
+
+Terminal 2:
+```bash
+ngrok http 3000
+```
+
+ngrok gives you a public URL like `https://abc123.ngrok.io` — your phone opens that instead of the local IP, and it works from anywhere.
+
+✅ Works even if phone and laptop are on completely different networks
+✅ No need to disconnect laptop from venue WiFi
+
+⚠️ Requires your laptop to have internet access
+⚠️ The public URL changes every time you restart ngrok (free plan)
+
+---
+
+### Which one should you use?
+
+| Situation | Best option |
+|-----------|-------------|
+| Presenting at a corporate office or hotel | **Phone hotspot** |
+| You need your laptop on the venue internet | **ngrok** |
+| Your own office or home network | App works as-is, no workaround needed |
+
+**Default habit:** always use your phone hotspot before a presentation. It takes 10 seconds and will never fail you.
+
+---
+
 ## Troubleshooting
 
+### Phone shows "Page cannot be displayed"
+- This is almost always a **client isolation** issue on the venue WiFi — see the section above
+- Fix: switch your laptop to your phone's hotspot, or use ngrok
+
 ### Phone can't connect
-- Make sure your laptop and phone are on the **same WiFi network**
+- Make sure your laptop and phone are on the **same WiFi network** (or laptop is on phone hotspot)
 - Check if your laptop firewall is blocking port `3000` — add an inbound rule to allow it
 - Try typing the URL manually: `http://<your-laptop-ip>:3000/remote`
 
@@ -210,7 +295,7 @@ slide-clicker/
 ## Limitations
 
 - **Windows only** — keystroke injection uses PowerShell `SendKeys`, laser overlay uses WinForms. macOS/Linux support would need a different approach (e.g., `xdotool` on Linux, `osascript` on macOS)
-- **Same network required** — phone and laptop must be on the same WiFi. Won't work over mobile data
+- **Same network required** — phone and laptop must be on the same WiFi. Corporate/hotel networks often block device-to-device communication — use phone hotspot or ngrok as a workaround (see above)
 - **Primary monitor only** — the laser overlay renders on the primary display
 - **No presentation file management** — this is a pure remote control, not a slide viewer. Your presentation runs in whatever app you normally use
 
