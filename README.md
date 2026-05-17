@@ -8,6 +8,44 @@ Built entirely with AI — because we practice what we preach.
 
 ---
 
+## Quick Start
+
+Choose the option that matches you:
+
+---
+
+### Option A — Double-Click to Launch (easiest, Node.js required)
+
+> Best for non-technical users who just want to run it with no commands.
+
+1. Download or clone this repo
+2. Double-click **`Start Slide Clicker.bat`**
+3. Your browser opens automatically with the QR code
+4. Scan it with your phone — done
+
+The `.bat` file handles everything: checks for Node.js, installs packages on first run, starts the server, and opens your browser. You never need to touch a terminal.
+
+> **Don't have Node.js?** The batch file will detect this and send you to [nodejs.org](https://nodejs.org) to download it. Install it (keep all defaults), then double-click the `.bat` file again. One-time setup only.
+
+---
+
+### Option B — Standalone .exe (zero prerequisites)
+
+> Best for sharing with others who may not have Node.js at all.
+
+Coming soon — see the [Building a Standalone .exe](#building-a-standalone-exe) section below to build it yourself.
+
+---
+
+### Option C — Command Line (for developers)
+
+```bash
+npm install
+npm start
+```
+
+---
+
 ## The Problem
 
 If you've ever presented at a bootcamp, workshop, or conference, you've hit at least one of these:
@@ -41,12 +79,13 @@ Slide Clicker solves all of these with **one thing everyone already has — a ph
 └──────────────┘                              └──────────────┘
 ```
 
-1. Run `npm start` on your laptop
-2. Open your presentation in slideshow mode
-3. Scan the QR code with your phone
-4. Your phone is now a wireless clicker with a laser pointer
+1. Start the app (double-click `Start Slide Clicker.bat` or run `npm start`)
+2. Your browser opens automatically with a QR code
+3. Open your presentation in slideshow mode
+4. Scan the QR code with your phone
+5. Your phone is now a wireless clicker with a laser pointer
 
-**No app to install. No Bluetooth. No pairing. No drivers. Just a browser.**
+**No app to install on the phone. No Bluetooth. No pairing. No drivers. Just a browser.**
 
 ---
 
@@ -90,28 +129,25 @@ Slide Clicker solves all of these with **one thing everyone already has — a ph
 
 ## Setup
 
-### Step 1: Clone the repo
+### Non-technical users (no commands needed)
+
+1. Download and unzip this repo
+2. Double-click **`Start Slide Clicker.bat`**
+3. If prompted about Node.js, go to [nodejs.org](https://nodejs.org), install it, then double-click again
+4. Your browser opens automatically — you'll see the QR code
+5. Open your presentation in slideshow mode
+6. Scan the QR code with your phone and start presenting
+
+### Developers
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/slide-clicker.git
-cd slide-clicker
-```
-
-### Step 2: Install dependencies
-
-```bash
+git clone https://github.com/anujmagazine/Slide-Clicker.git
+cd Slide-Clicker
 npm install
-```
-
-That's it. Three dependencies: `express`, `ws`, `qrcode`. No build step. No bundler. No config files.
-
-### Step 3: Start the server
-
-```bash
 npm start
 ```
 
-You'll see:
+The server starts and your browser opens automatically to `http://localhost:3000`.
 
 ```
   ╔══════════════════════════════════════════╗
@@ -120,21 +156,7 @@ You'll see:
   ║  Laptop:  http://localhost:3000          ║
   ║  Phone:   http://192.168.x.x:3000/remote║
   ╚══════════════════════════════════════════╝
-
-  Open your presentation, then scan the QR code with your phone.
 ```
-
-### Step 4: Open the presenter page
-
-Go to `http://localhost:3000` in your laptop browser. You'll see a QR code.
-
-### Step 5: Scan with your phone
-
-Open your phone camera (or any QR scanner) and scan the code. A web page opens — that's your clicker. No app store. No download. Just works.
-
-### Step 6: Present
-
-Open your presentation in slideshow mode. Start tapping.
 
 ---
 
@@ -298,6 +320,29 @@ ngrok gives you a public URL like `https://abc123.ngrok.io` — your phone opens
 - **Same network required** — phone and laptop must be on the same WiFi. Corporate/hotel networks often block device-to-device communication — use phone hotspot or ngrok as a workaround (see above)
 - **Primary monitor only** — the laser overlay renders on the primary display
 - **No presentation file management** — this is a pure remote control, not a slide viewer. Your presentation runs in whatever app you normally use
+
+---
+
+## Building a Standalone .exe
+
+If you want to share Slide Clicker with someone who doesn't have Node.js, you can package it into a single `.exe` file they just double-click. Nothing else needed on their machine.
+
+**One-time setup:**
+
+```bash
+npm install
+npm install -g pkg
+```
+
+**Build the exe:**
+
+```bash
+npm run build
+```
+
+This creates `dist/SlideClicker.exe`. Send that file to anyone — they double-click it, their browser opens automatically, done.
+
+> **Note:** The first time you run the exe on a new machine, Windows may show a security warning ("Windows protected your PC"). Click **More info** → **Run anyway**. This happens because the exe is not signed with a paid certificate — it's safe.
 
 ---
 

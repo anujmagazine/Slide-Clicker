@@ -4,11 +4,25 @@
   "description": "Phone-as-presentation-clicker — built with AI",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "pkg server.js --targets node18-win-x64 --output dist/SlideClicker.exe --assets public/**/*,overlay.ps1"
   },
   "dependencies": {
     "express": "^4.21.0",
     "qrcode": "^1.5.4",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  },
+  "pkg": {
+    "assets": [
+      "public/**/*",
+      "overlay.ps1"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
   }
 }

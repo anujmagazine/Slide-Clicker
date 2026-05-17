@@ -2,12 +2,35 @@ const express = require("express");
 const http = require("http");
 const { WebSocketServer } = require("ws");
 const QRCode = require("qrcode");
-const { execSync, spawn } = require("child_process");
+const { execSync, spawn, exec } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
 const PORT = 3000;
+
+// When packaged as a standalone .exe via pkg, __dirname points to the
+// snapshot filesystem inside the exe. overlay.ps1 must be extracted to
+// a real temp path because PowerShell can only run real files.
+const IS_PKG = typeof process.pkg !== "undefined";
+const BASE_DIR = IS_PKG ? path.dirname(process.execPath) : __dirname;
+
+function getOverlayScript() {
+  if (IS_PKG) {
+    const dest = path.join(os.tmpdir(), "slide-clicker-overlay.ps1");
+    fs.writeFileSync(dest, fs.readFileSync(path.join(__dirname, "overlay.ps1")));
+    return dest;
+  }
+  return path.join(__dirname, "overlay.ps1");
+}
+
+// Auto-open the presenter page in the default browser
+function openBrowser(url) {
+  const cmd = process.platform === "darwin" ? `open "${url}"`
+            : process.platform === "win32"  ? `start "" "${url}"`
+            : `xdg-open "${url}"`;
+  exec(cmd, () => {});
+}
 
 // Get local IP address for the QR code
 function getLocalIP() {
@@ -43,6 +66,7 @@ const localIP = getLocalIP();
 const remoteURL = `http://${localIP}:${PORT}/remote`;
 
 app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(BASE_DIR, "public")));
 
 // API endpoint that returns the QR code as a data URL
 app.get("/api/qr", async (req, res) => {
@@ -64,7 +88,7 @@ let overlayProcess = null;
 
 function startOverlay() {
   if (overlayProcess) return;
-  const script = path.join(__dirname, "overlay.ps1");
+  const script = getOverlayScript();
   overlayProcess = spawn("powershell", [
     "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, POINTER_FILE,
   ], { windowsHide: false, stdio: "ignore" });
@@ -155,6 +179,10 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`  ║  Phone:   ${remoteURL.padEnd(30)}║`);
   console.log("  ╚══════════════════════════════════════════╝");
   console.log("");
+  console.log("  Opening your browser...");
   console.log("  Open your presentation, then scan the QR code with your phone.");
   console.log("");
+
+  // Auto-open presenter page so non-technical users don't need to type a URL
+  setTimeout(() => openBrowser(`http://localhost:${PORT}`), 1000);
 });
