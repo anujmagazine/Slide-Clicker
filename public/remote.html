@@ -33,14 +33,12 @@
     justify-content: space-between;
     flex-shrink: 0;
   }
-  .brand {
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    background: linear-gradient(135deg, #a78bfa, #60a5fa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+  .brand img {
+    height: 28px;
+    width: auto;
+    background: #fff;
+    border-radius: 6px;
+    padding: 4px 10px;
   }
   .conn {
     display: flex;
@@ -298,7 +296,7 @@
   </div>
 
   <div class="header">
-    <div class="brand">Slide Clicker</div>
+    <div class="brand"><img src="/logo.png" alt="AI & Beyond"></div>
     <div class="conn">
       <div class="conn-dot" id="connDot"></div>
       <span id="connText">Connected</span>
