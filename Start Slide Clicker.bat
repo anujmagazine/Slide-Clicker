@@ -3,6 +3,10 @@ title Slide Clicker
 color 0A
 cls
 
+:: Make sure we run from the folder where this bat file lives,
+:: even if the user runs it as Administrator (which defaults to System32)
+cd /d "%~dp0"
+
 echo.
 echo   ==========================================
 echo     SLIDE CLICKER  ^|  AI-Powered Remote
