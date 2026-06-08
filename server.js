@@ -7,7 +7,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-const PORT = 3000;
+const PORT = 5678;
 
 // When packaged as a standalone .exe via pkg, __dirname points to the
 // snapshot filesystem inside the exe. overlay.ps1 must be extracted to
