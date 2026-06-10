@@ -33,15 +33,37 @@ function openBrowser(url) {
 }
 
 // Get local IP address for the QR code
+// Prefers WiFi/hotspot IPs (192.168.x.x) over other interfaces
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
+  const candidates = [];
+
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name]) {
       if (iface.family === "IPv4" && !iface.internal) {
-        return iface.address;
+        candidates.push({ name, address: iface.address });
       }
     }
   }
+
+  // Log all available IPs so user can see what was detected
+  if (candidates.length > 0) {
+    console.log("  Detected network interfaces:");
+    candidates.forEach(c => console.log(`    ${c.name}: ${c.address}`));
+    console.log("");
+  }
+
+  // Prefer 192.168.x.x (WiFi / phone hotspot range)
+  const preferred = candidates.find(c => c.address.startsWith("192.168."));
+  if (preferred) return preferred.address;
+
+  // Fall back to 10.x.x.x (some hotspots use this range)
+  const fallback10 = candidates.find(c => c.address.startsWith("10."));
+  if (fallback10) return fallback10.address;
+
+  // Last resort: first available non-loopback IP
+  if (candidates.length > 0) return candidates[0].address;
+
   return "127.0.0.1";
 }
 
