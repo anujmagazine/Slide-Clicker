@@ -33,12 +33,15 @@ function openBrowser(url) {
 }
 
 // Get local IP address for the QR code
-// Prefers WiFi/hotspot IPs (192.168.x.x) over other interfaces
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
   const candidates = [];
 
+  // VPN/tunnel interface names to skip — they produce IPs unreachable by phone
+  const skipNames = /tailscale|vpn|tun|tap|virtual|loopback|vethernet/i;
+
   for (const name of Object.keys(interfaces)) {
+    if (skipNames.test(name)) continue;
     for (const iface of interfaces[name]) {
       if (iface.family === "IPv4" && !iface.internal) {
         candidates.push({ name, address: iface.address });
@@ -46,22 +49,30 @@ function getLocalIP() {
     }
   }
 
-  // Log all available IPs so user can see what was detected
+  // Log all detected IPs so user can see what was found
   if (candidates.length > 0) {
     console.log("  Detected network interfaces:");
     candidates.forEach(c => console.log(`    ${c.name}: ${c.address}`));
     console.log("");
   }
 
-  // Prefer 192.168.x.x (WiFi / phone hotspot range)
-  const preferred = candidates.find(c => c.address.startsWith("192.168."));
-  if (preferred) return preferred.address;
+  // Private IP ranges phones can reach:
+  // 192.168.x.x — most home WiFi / phone hotspots
+  const r1 = candidates.find(c => c.address.startsWith("192.168."));
+  if (r1) return r1.address;
 
-  // Fall back to 10.x.x.x (some hotspots use this range)
-  const fallback10 = candidates.find(c => c.address.startsWith("10."));
-  if (fallback10) return fallback10.address;
+  // 172.16–31.x.x — corporate WiFi, some hotspots
+  const r2 = candidates.find(c => {
+    const second = parseInt(c.address.split(".")[1], 10);
+    return c.address.startsWith("172.") && second >= 16 && second <= 31;
+  });
+  if (r2) return r2.address;
 
-  // Last resort: first available non-loopback IP
+  // 10.x.x.x — other private range
+  const r3 = candidates.find(c => c.address.startsWith("10."));
+  if (r3) return r3.address;
+
+  // Last resort: first non-VPN, non-loopback IP
   if (candidates.length > 0) return candidates[0].address;
 
   return "127.0.0.1";
