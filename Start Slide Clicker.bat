@@ -77,6 +77,11 @@ if not exist "node_modules" (
     echo.
 )
 
+:: ── Kill any previous instance on port 5678 ───────────────
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5678 "') do (
+    taskkill /F /PID %%a >nul 2>&1
+)
+
 echo   Starting Slide Clicker...
 echo.
 echo   Your browser will open automatically in a moment.
