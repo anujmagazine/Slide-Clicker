@@ -1,11 +1,13 @@
 const express = require("express");
 const http = require("http");
+const https = require("https");
 const { WebSocketServer } = require("ws");
 const QRCode = require("qrcode");
 const { execSync, spawn, exec } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const selfsigned = require("selfsigned");
 
 const PORT = 5678;
 
@@ -91,12 +93,18 @@ function sendKey(direction) {
   }
 }
 
+// Generate a self-signed TLS certificate so Chrome allows microphone access
+// (browsers block mic on plain HTTP; HTTPS — even self-signed — unlocks it)
+const attrs = [{ name: "commonName", value: "slide-clicker" }];
+const pems = selfsigned.generate(attrs, { days: 365, keySize: 2048 });
+const tlsOptions = { key: pems.private, cert: pems.cert };
+
 const app = express();
-const server = http.createServer(app);
+const server = https.createServer(tlsOptions, app);
 const wss = new WebSocketServer({ server });
 
 const localIP = getLocalIP();
-const remoteURL = `http://${localIP}:${PORT}/remote`;
+const remoteURL = `https://${localIP}:${PORT}/remote`;
 
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.static(path.join(BASE_DIR, "public")));
@@ -208,14 +216,14 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log("  ╔══════════════════════════════════════════╗");
   console.log("  ║         SLIDE CLICKER — Ready!           ║");
   console.log("  ╠══════════════════════════════════════════╣");
-  console.log(`  ║  Laptop:  http://localhost:${PORT}          ║`);
+  console.log(`  ║  Laptop:  https://localhost:${PORT}         ║`);
   console.log(`  ║  Phone:   ${remoteURL.padEnd(30)}║`);
   console.log("  ╚══════════════════════════════════════════╝");
   console.log("");
-  console.log("  Opening your browser...");
-  console.log("  Open your presentation, then scan the QR code with your phone.");
+  console.log("  NOTE: Browser will warn 'connection not private' — this is normal.");
+  console.log("  Click Advanced → Proceed to continue. Needed for voice/microphone.");
   console.log("");
 
-  // Auto-open presenter page so non-technical users don't need to type a URL
-  setTimeout(() => openBrowser(`http://localhost:${PORT}`), 1000);
+  // Auto-open presenter page
+  setTimeout(() => openBrowser(`https://localhost:${PORT}`), 1000);
 });
