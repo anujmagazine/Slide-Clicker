@@ -615,15 +615,38 @@
   let recognition = null;
   let voiceOn = false;
   let restartTimer = null;
+  let silentAudio = null;
 
-  // Keywords that trigger next slide
+  // Play a looping silent buffer — suppresses Chrome's speech recognition beep
+  function startSilentAudio() {
+    if (silentAudio) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const buf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(ctx.destination);
+      src.start();
+      silentAudio = { ctx, src };
+    } catch(e) {}
+  }
+
+  function stopSilentAudio() {
+    if (!silentAudio) return;
+    try { silentAudio.src.stop(); silentAudio.ctx.close(); } catch(e) {}
+    silentAudio = null;
+  }
+
   const NEXT_WORDS = ["next", "next please", "okay next", "ok next", "go next", "forward", "advance", "continue"];
+  const PREV_WORDS = ["back", "previous", "go back", "prev", "last slide", "before"];
 
   function startVoice() {
     if (!SpeechRecognition) {
       alert("Sorry, your browser doesn't support voice recognition.\nTry Chrome on Android or Safari on iPhone.");
       return;
     }
+    startSilentAudio();
     recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = false;
@@ -636,12 +659,16 @@
         navigate("next");
         voiceHeard.textContent = '✓ Next slide';
         if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
-        setTimeout(() => { if (voiceOn) voiceHeard.textContent = 'Listening... say "Next"'; }, 1200);
+        setTimeout(() => { if (voiceOn) voiceHeard.textContent = 'Listening... say "Next" or "Back"'; }, 1200);
+      } else if (PREV_WORDS.some(w => transcript.includes(w))) {
+        navigate("prev");
+        voiceHeard.textContent = '✓ Previous slide';
+        if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+        setTimeout(() => { if (voiceOn) voiceHeard.textContent = 'Listening... say "Next" or "Back"'; }, 1200);
       }
     };
 
     recognition.onend = () => {
-      // Auto-restart — browser stops recognition after silence
       if (voiceOn) restartTimer = setTimeout(() => recognition.start(), 200);
     };
 
@@ -656,13 +683,14 @@
     voiceOn = true;
     btnMic.classList.add("mic-active");
     voiceStatus.classList.remove("hidden");
-    voiceHeard.textContent = 'Listening... say "Next"';
+    voiceHeard.textContent = 'Listening... say "Next" or "Back"';
   }
 
   function stopVoice() {
     voiceOn = false;
     clearTimeout(restartTimer);
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
+    stopSilentAudio();
     btnMic.classList.remove("mic-active");
     voiceStatus.classList.add("hidden");
   }
