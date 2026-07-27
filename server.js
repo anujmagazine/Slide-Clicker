@@ -95,8 +95,19 @@ function sendKey(direction) {
 
 // Generate a self-signed TLS certificate so Chrome allows microphone access
 // (browsers block mic on plain HTTP; HTTPS — even self-signed — unlocks it)
+// SAN extension is required by Chrome 58+ — without it the cert is rejected
 const attrs = [{ name: "commonName", value: "slide-clicker" }];
-const pems = selfsigned.generate(attrs, { days: 365, keySize: 2048 });
+const pems = selfsigned.generate(attrs, {
+  days: 365,
+  keySize: 2048,
+  algorithm: "sha256",
+  extensions: [
+    { name: "subjectAltName", altNames: [
+      { type: 7, ip: "127.0.0.1" },
+      { type: 2, value: "localhost" },
+    ]},
+  ],
+});
 const tlsOptions = { key: pems.private, cert: pems.cert };
 
 const app = express();

@@ -443,7 +443,7 @@
 
   // ── WebSocket ──
   function connect() {
-    ws = new WebSocket(`ws://${location.host}/ws/remote`);
+    ws = new WebSocket(`wss://${location.host}/ws/remote`);
 
     ws.onopen = () => {
       connected = true;

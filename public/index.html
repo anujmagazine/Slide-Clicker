@@ -141,7 +141,7 @@
     });
 
   // WebSocket
-  const ws = new WebSocket(`ws://${location.host}/ws/presenter`);
+  const ws = new WebSocket(`wss://${location.host}/ws/presenter`);
   const dot = document.getElementById("dot");
   const statusText = document.getElementById("statusText");
 
