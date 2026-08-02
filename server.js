@@ -117,8 +117,21 @@ const wss = new WebSocketServer({ server });
 const localIP = getLocalIP();
 const remoteURL = `https://${localIP}:${PORT}/remote`;
 
+app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.static(path.join(BASE_DIR, "public")));
+
+// Gesture control — laptop page detects hand swipe, calls this to advance slide
+app.post("/api/navigate", (req, res) => {
+  const { direction } = req.body || {};
+  if (direction === "next" || direction === "prev") {
+    sendKey(direction);
+    broadcast({ type: "navigated", direction });
+    res.json({ ok: true });
+  } else {
+    res.status(400).json({ error: "invalid direction" });
+  }
+});
 
 // API endpoint that returns the QR code as a data URL
 app.get("/api/qr", async (req, res) => {

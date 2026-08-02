@@ -106,6 +106,64 @@
     color: #3a3a4a;
     letter-spacing: 0.05em;
   }
+  .gesture-btn {
+    margin-top: 1rem;
+    padding: 0.5rem 1.2rem;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 100px;
+    background: rgba(255,255,255,0.04);
+    color: #6b6b80;
+    font-family: inherit;
+    font-size: 0.78rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+  }
+  .gesture-btn:hover { background: rgba(255,255,255,0.07); }
+  .gesture-btn.active {
+    background: rgba(74,222,128,0.1);
+    border-color: rgba(74,222,128,0.3);
+    color: #4ade80;
+  }
+  .gesture-btn svg { width: 15px; height: 15px; fill: currentColor; }
+  .cam-wrap {
+    position: fixed;
+    bottom: 1.2rem; right: 1.2rem;
+    width: 160px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(74,222,128,0.35);
+    background: #000;
+    display: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .cam-wrap.active { display: block; }
+  .cam-wrap video {
+    width: 100%; display: block;
+    transform: scaleX(-1);
+  }
+  .cam-label {
+    text-align: center;
+    font-size: 0.6rem;
+    color: #4ade80;
+    background: rgba(0,0,0,0.7);
+    padding: 3px 0;
+    letter-spacing: 0.08em;
+  }
+  .gesture-indicator {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 3.5rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+    z-index: 20;
+    filter: drop-shadow(0 0 20px rgba(74,222,128,0.6));
+  }
+  .gesture-indicator.active { opacity: 1; transition: none; }
 </style>
 </head>
 <body>
@@ -129,8 +187,21 @@
       <span id="statusText">Waiting for phone...</span>
     </div>
     <div class="badge">SLIDE CLICKER &middot; AI-POWERED</div>
+    <div>
+      <button class="gesture-btn" id="gestureBtn">
+        <svg viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 00-4 0v5M14 6V4a2 2 0 00-4 0v8M10 4.5V4a2 2 0 00-4 0v8l-1.06-1.06a2 2 0 00-2.83 2.83L6 17.59A6 6 0 0012 20a6 6 0 006-6v-3a2 2 0 00-4 0"/></svg>
+        Gesture Off
+      </button>
+    </div>
   </div>
 
+  <div class="cam-wrap" id="camWrap">
+    <video id="camVideo" autoplay playsinline muted></video>
+    <div class="cam-label">GESTURE MODE ON</div>
+  </div>
+  <div class="gesture-indicator" id="gestureIndicator">👋</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
 <script>
   // Load QR code
   fetch("/api/qr")
@@ -169,6 +240,132 @@
     dot.className = "dot disconnected";
     statusText.textContent = "Server disconnected";
   };
+
+  // ── Gesture control ──
+  const gestureBtn = document.getElementById("gestureBtn");
+  const camWrap = document.getElementById("camWrap");
+  const camVideo = document.getElementById("camVideo");
+  const gestureIndicator = document.getElementById("gestureIndicator");
+
+  let gestureOn = false;
+  let handsModel = null;
+  let camStream = null;
+  let frameTimer = null;
+  let posHistory = [];
+  let cooldown = false;
+
+  const SWIPE_THRESHOLD = 0.28;  // 28% of frame width
+  const SWIPE_WINDOW_MS = 750;
+  const COOLDOWN_MS = 2000;
+
+  function fireGesture() {
+    if (cooldown) return;
+    cooldown = true;
+    setTimeout(() => { cooldown = false; }, COOLDOWN_MS);
+
+    fetch("/api/navigate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ direction: "next" })
+    });
+
+    // Flash the screen
+    const fl = document.getElementById("flashNext");
+    fl.classList.add("active");
+    setTimeout(() => fl.classList.remove("active"), 200);
+
+    // Show hand indicator
+    gestureIndicator.classList.add("active");
+    setTimeout(() => gestureIndicator.classList.remove("active"), 700);
+  }
+
+  function onHandResults(results) {
+    if (!gestureOn) return;
+    const now = Date.now();
+
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+      // Landmark 0 = wrist; x is 0 (left of frame) → 1 (right of frame)
+      const wx = results.multiHandLandmarks[0][0].x;
+      posHistory.push({ x: wx, t: now });
+    } else {
+      // Hand left frame — reset if stale
+      if (posHistory.length && now - posHistory[posHistory.length - 1].t > 400) {
+        posHistory = [];
+      }
+    }
+
+    // Keep only entries within the swipe window
+    posHistory = posHistory.filter(p => now - p.t < SWIPE_WINDOW_MS);
+    if (posHistory.length < 6) return;
+
+    const first = posHistory[0].x;
+    const last  = posHistory[posHistory.length - 1].x;
+    const span  = Math.max(...posHistory.map(p => p.x)) - Math.min(...posHistory.map(p => p.x));
+
+    // Raw camera coords are mirrored vs. what the user sees.
+    // User waves right → x decreases in raw coords → first > last.
+    if (span > SWIPE_THRESHOLD && first - last > SWIPE_THRESHOLD * 0.7) {
+      posHistory = [];
+      fireGesture();
+    }
+  }
+
+  async function startGesture() {
+    try {
+      camStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: 320, height: 240 }
+      });
+      camVideo.srcObject = camStream;
+      await new Promise(r => camVideo.onloadedmetadata = r);
+
+      handsModel = new Hands({
+        locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${f}`
+      });
+      handsModel.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 0,
+        minDetectionConfidence: 0.65,
+        minTrackingConfidence: 0.55
+      });
+      handsModel.onResults(onHandResults);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 320; canvas.height = 240;
+      const ctx2d = canvas.getContext("2d");
+
+      async function tick() {
+        if (!gestureOn) return;
+        if (camVideo.readyState >= 2) {
+          ctx2d.drawImage(camVideo, 0, 0, 320, 240);
+          await handsModel.send({ image: canvas });
+        }
+        frameTimer = setTimeout(tick, 80); // ~12fps — enough for gestures
+      }
+      tick();
+
+      gestureOn = true;
+      camWrap.classList.add("active");
+      gestureBtn.classList.add("active");
+      gestureBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 00-4 0v5M14 6V4a2 2 0 00-4 0v8M10 4.5V4a2 2 0 00-4 0v8l-1.06-1.06a2 2 0 00-2.83 2.83L6 17.59A6 6 0 0012 20a6 6 0 006-6v-3a2 2 0 00-4 0"/></svg> Gesture On`;
+    } catch (e) {
+      alert("Camera access denied — please allow camera permission and try again.");
+    }
+  }
+
+  function stopGesture() {
+    gestureOn = false;
+    clearTimeout(frameTimer);
+    if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+    if (handsModel) { handsModel.close(); handsModel = null; }
+    posHistory = [];
+    camWrap.classList.remove("active");
+    gestureBtn.classList.remove("active");
+    gestureBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 00-4 0v5M14 6V4a2 2 0 00-4 0v8M10 4.5V4a2 2 0 00-4 0v8l-1.06-1.06a2 2 0 00-2.83 2.83L6 17.59A6 6 0 0012 20a6 6 0 006-6v-3a2 2 0 00-4 0"/></svg> Gesture Off`;
+  }
+
+  gestureBtn.addEventListener("click", () => {
+    if (gestureOn) stopGesture(); else startGesture();
+  });
 </script>
 </body>
 </html>
